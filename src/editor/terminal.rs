@@ -1,20 +1,23 @@
 use crossterm::cursor::{self, MoveTo};
-use crossterm::queue;
+use crossterm::{ queue, Command };
 use crossterm::style::Print;
 use crossterm::terminal::{disable_raw_mode, enable_raw_mode, Clear, ClearType, size};
 
+use core::fmt::Display;
 use std::io::{ Write, stdout, Error };
 
 pub struct Terminal;
 
+#[derive(Copy, Clone)]
 pub struct Size {
-    pub height: u16,
-    pub width: u16,
+    pub height: usize,
+    pub width: usize,
 }
 
+#[derive(Copy, Clone)]
 pub struct Position {
-    pub x: u16,
-    pub y: u16,
+    pub x: usize,
+    pub y: usize,
 }
 
 impl Terminal {
@@ -34,44 +37,54 @@ impl Terminal {
         disable_raw_mode()
     }
 
+    // truncated to u16::MAX if pos.x or pos.y is larger
+    #[allow(clippy::cast_possible_truncation)]
     pub fn set_cursor(pos: Position) -> Result<(), Error> {
         // reset cursor to top left
-        queue!(stdout(), MoveTo(pos.x, pos.y))
+        #[allow(clippy::as_conversions)]
+        Self::queue_command(MoveTo(pos.x as u16, pos.y as u16))
     }
 
     pub fn clear_screen() -> Result<(), Error> {
-        let mut stdout = stdout();
-        queue!(stdout, Clear(ClearType::All))
+        Self::queue_command(Clear(ClearType::All))
     }
 
     pub fn clear_current_line() -> Result<(), Error> {
-        let mut stdout = stdout();
-        queue!(stdout, Clear(ClearType::CurrentLine))
+        Self::queue_command(Clear(ClearType::CurrentLine))
     }
 
-    pub fn print(string: &str) -> Result<(), Error> {
-        queue!(stdout(), Print(string))
+    pub fn print(string: impl Display) -> Result<(), Error> {
+        Self::queue_command(Print(string))
     }
 
     pub fn size() -> Result<Size, Error> {
-        let (x, y) = size()?;
+        let (x_u16, y_u16) = size()?;
         Ok(Size {
-            width: x,
-            height: y,
+            #[allow(clippy::as_conversions)]
+            width: x_u16 as usize,
+
+            #[allow(clippy::as_conversions)]
+            height: y_u16 as usize,
         })
     }
 
     pub fn hidecursor() -> Result<(), Error> {
-        queue!(stdout(), cursor::Hide)
+        Self::queue_command(cursor::Hide)
     }
 
     pub fn showcursor() -> Result<(), Error> {
-        queue!(stdout(), cursor::Show)
+        Self::queue_command(cursor::Show)
     }
 
     pub fn execute() -> Result<(), Error> {
         // ensure all pending writes are going out
         stdout().flush()?;
+        Ok(())
+    }
+
+    // offloading queue! macro calls to a helper function
+    fn queue_command(command: impl Command) -> Result<(), Error> {
+        queue!(stdout(), command)?;
         Ok(())
     }
 }
