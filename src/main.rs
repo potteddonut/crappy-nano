@@ -1,3 +1,5 @@
+#![warn(clippy::print_stdout)]
+
 mod editor;
 use editor::Editor;
 

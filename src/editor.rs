@@ -1,7 +1,9 @@
 use crossterm::event::{read, Event::{self, Key}, KeyCode::Char, KeyEvent, KeyModifiers};
 
 mod terminal;
-use terminal::Terminal;
+use terminal::{Position, Terminal};
+
+use std::io::Error;
 
 pub struct Editor {
     should_quit: bool,
@@ -22,7 +24,7 @@ impl Editor {
         result.unwrap();
     }
 
-    fn repl(&mut self) -> Result<(), std::io::Error> {
+    fn repl(&mut self) -> Result<(), Error> {
         loop {
             self.refresh_screen()?;
 
@@ -48,32 +50,37 @@ impl Editor {
 
     // called by the REPL loop
     // if the exit shortcut is not triggered, re-print left-column of '~'
-    fn refresh_screen(&self) -> Result<(), std::io::Error> {
+    fn refresh_screen(&self) -> Result<(), Error> {
         Terminal::hidecursor()?;
 
         if self.should_quit {
-            Terminal::clear_screen()?;
-            print!("bye nerd\r\n");
+            // Terminal::clear_screen()?;
+            Terminal::print("bye nerd\r\n")?;
         } else {
             Self::draw_rows()?;
-            Terminal::set_cursor(0, 0)?;
+            Terminal::set_cursor(Position {
+                x: 0,
+                y: 0
+            })?;
         }
 
         Terminal::showcursor()?;
+        Terminal::execute()?;
         Ok(())
     }
 
     // construct left-column of '~' based on window height
-    fn draw_rows() -> Result<(), std::io::Error>{ 
-        let height = Terminal::size()?.1;
+    fn draw_rows() -> Result<(), Error>{ 
+        let height = Terminal::size()?.height;
 
         // height of 10 rows = print ~ for row 0-9
         for row in 0..height {
-            print!("~");
+            Terminal::clear_current_line()?;
+            Terminal::print("~")?;
 
             // bottom of terminal window
             if (row +1) < height {
-                print!("\r\n")
+                Terminal::print("\r\n")?;
             }
         }
 
