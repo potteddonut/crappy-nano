@@ -1,1 +1,0 @@
-/Users/zach/Desktop/rust-projects/crappy-nano/target/debug/crappy-nano: /Users/zach/Desktop/rust-projects/crappy-nano/src/editor/terminal.rs /Users/zach/Desktop/rust-projects/crappy-nano/src/editor.rs /Users/zach/Desktop/rust-projects/crappy-nano/src/main.rs
