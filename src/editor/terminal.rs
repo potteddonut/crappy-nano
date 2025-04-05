@@ -14,7 +14,7 @@ pub struct Size {
     pub width: usize,
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Default)]
 pub struct Position {
     pub x: usize,
     pub y: usize,
@@ -37,14 +37,6 @@ impl Terminal {
         disable_raw_mode()
     }
 
-    // truncated to u16::MAX if pos.x or pos.y is larger
-    #[allow(clippy::cast_possible_truncation)]
-    pub fn set_cursor(pos: Position) -> Result<(), Error> {
-        // reset cursor to top left
-        #[allow(clippy::as_conversions)]
-        Self::queue_command(MoveTo(pos.x as u16, pos.y as u16))
-    }
-
     pub fn clear_screen() -> Result<(), Error> {
         Self::queue_command(Clear(ClearType::All))
     }
@@ -59,13 +51,13 @@ impl Terminal {
 
     pub fn size() -> Result<Size, Error> {
         let (x_u16, y_u16) = size()?;
-        Ok(Size {
-            #[allow(clippy::as_conversions)]
-            width: x_u16 as usize,
 
-            #[allow(clippy::as_conversions)]
-            height: y_u16 as usize,
-        })
+        #[allow(clippy::as_conversions)]
+        let width = x_u16 as usize;
+        #[allow(clippy::as_conversions)]
+        let height = y_u16 as usize;
+
+        Ok(Size { height, width })
     }
 
     pub fn hidecursor() -> Result<(), Error> {
@@ -74,6 +66,14 @@ impl Terminal {
 
     pub fn showcursor() -> Result<(), Error> {
         Self::queue_command(cursor::Show)
+    }
+
+    // truncated to u16::MAX if pos.x or pos.y is larger
+    #[allow(clippy::cast_possible_truncation)]
+    pub fn set_cursor(pos: Position) -> Result<(), Error> {
+        // reset cursor to top left
+        #[allow(clippy::as_conversions)]
+        Self::queue_command(MoveTo(pos.x as u16, pos.y as u16))
     }
 
     pub fn execute() -> Result<(), Error> {
