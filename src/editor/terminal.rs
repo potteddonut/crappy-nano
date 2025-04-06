@@ -42,11 +42,13 @@ impl Terminal {
     }
 
     pub fn clear_current_line() -> Result<(), Error> {
-        Self::queue_command(Clear(ClearType::CurrentLine))
+        Self::queue_command(Clear(ClearType::CurrentLine))?;
+        Ok(())
     }
 
-    pub fn print(string: impl Display) -> Result<(), Error> {
-        Self::queue_command(Print(string))
+    pub fn print(string: &str) -> Result<(), Error> {
+        Self::queue_command(Print(string))?;
+        Ok(())
     }
 
     pub fn size() -> Result<Size, Error> {
