@@ -1,6 +1,6 @@
 use std::io::Error;
 use std::cmp::min;
-use crossterm::event::{read, Event::{self, Key}, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
+use crossterm::event::{read, Event::{self, Key}, KeyCode, KeyEvent, KeyModifiers};
 
 mod terminal;
 use terminal::{Position, Size, Terminal};
@@ -21,15 +21,25 @@ struct Location {
 pub struct Editor {
     should_quit: bool,
     location: Location,
+    view: View,
 }
 
 impl Editor {
     pub fn run(&mut self) {
         Terminal::initialize().unwrap();
+        self.parse_args();
         let result = self.repl();
 
         Terminal::terminate().unwrap();
         result.unwrap();
+    }
+
+    // retrieve filepath from args
+    fn parse_args(&mut self) {
+        let args: Vec<String> = std::env::args().collect();
+        if let Some(filepath) = args.get(1) {
+            self.view.load(filepath);
+        }
     }
 
     fn repl(&mut self) -> Result<(), Error> {
@@ -121,8 +131,7 @@ impl Editor {
             // Terminal::clear_screen()?;
             Terminal::print("bye nerd\r\n")?;
         } else {
-            View::render()?;
-
+            self.view.render()?;
             Terminal::set_cursor(Position {
                 x: self.location.x,
                 y: self.location.y,

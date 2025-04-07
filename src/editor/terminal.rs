@@ -3,7 +3,6 @@ use crossterm::{ queue, Command };
 use crossterm::style::Print;
 use crossterm::terminal::{disable_raw_mode, enable_raw_mode, Clear, ClearType, size};
 
-use core::fmt::Display;
 use std::io::{ Write, stdout, Error };
 
 pub struct Terminal;
@@ -41,7 +40,7 @@ impl Terminal {
         Self::queue_command(Clear(ClearType::All))
     }
 
-    pub fn clear_current_line() -> Result<(), Error> {
+    pub fn clear_line() -> Result<(), Error> {
         Self::queue_command(Clear(ClearType::CurrentLine))?;
         Ok(())
     }

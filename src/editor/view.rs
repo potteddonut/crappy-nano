@@ -1,22 +1,41 @@
-use super::terminal::{Size, Terminal};
+use super::terminal::{ Terminal, Size };
 use std::io::Error;
+
+mod buffer;
+use buffer::Buffer;
 
 use crate::editor::NAME;
 use crate::editor::VERSION;
 
-pub struct View;
+#[derive(Default)]
+pub struct View {
+    buffer: Buffer,
+}
 
 impl View {
-    // construct left-column of '~' based on window height
-    pub fn render() -> Result<(), Error>{ 
+    // method to load file contents into buffer
+    pub fn load(&mut self, filepath: &str) {
+        if let Ok(buffer) = Buffer::load(filepath) {
+            self.buffer = buffer;
+        }
+    }
+
+    pub fn render(&self) -> Result<(), Error> {
+        if self.buffer.is_empty() {
+            Self::render_welcome()?;
+        } else {
+            self.render_buffer()?;
+        }
+
+        Ok(())
+    }
+
+    pub fn render_welcome() -> Result<(), Error>{ 
         let height = Terminal::size()?.height;
 
-        Terminal::clear_current_line()?;
-        Terminal::print("hello world!\r\n")?;
-
         // height of 10 rows = print ~ for row 0-9
-        for row in 1..height {
-            Terminal::clear_current_line()?;
+        for row in 0..height {
+            Terminal::clear_line()?;
             
             // welcome message insertion logic
             #[allow(clippy::integer_division)]
@@ -28,6 +47,26 @@ impl View {
 
             // bottom of terminal window
             if (row.saturating_add(1)) < height {
+                Terminal::print("\r\n")?;
+            }
+        }
+
+        Ok(())
+    }
+
+    pub fn render_buffer(&self) -> Result<(), Error> {
+        let Size { height, .. } = Terminal::size()?;
+
+        for row in 0..height {
+            Terminal::clear_line()?;
+
+            if let Some(line) = self.buffer.lines.get(row) {
+                Terminal::print(line)?;
+            } else {
+                Self::draw_empty_row()?;
+            }
+
+            if row.saturating_add(1) < height {
                 Terminal::print("\r\n")?;
             }
         }
