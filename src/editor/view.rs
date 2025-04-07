@@ -1,4 +1,4 @@
-use super::terminal::{ Terminal, Size };
+use super::terminal::{ Terminal, Size, Position };
 use std::io::Error;
 
 mod buffer;
@@ -7,94 +7,98 @@ use buffer::Buffer;
 use crate::editor::NAME;
 use crate::editor::VERSION;
 
-#[derive(Default)]
 pub struct View {
     buffer: Buffer,
+    size: Size,
+    need_redraw: bool,
 }
 
 impl View {
+    pub fn resize(&mut self, size: Size) {
+        self.size = size;
+        self.need_redraw = true;
+    }
+
     // method to load file contents into buffer
     pub fn load(&mut self, filepath: &str) {
         if let Ok(buffer) = Buffer::load(filepath) {
             self.buffer = buffer;
+            self.need_redraw = true;
         }
     }
 
-    pub fn render(&self) -> Result<(), Error> {
-        if self.buffer.is_empty() {
-            Self::render_welcome()?;
-        } else {
-            self.render_buffer()?;
-        }
+    fn render_line(at: usize, text: &str) -> Result<(), Error> {
+        Terminal::set_cursor(Position {
+            x: 0,
+            y: at
+        })?;
 
+        Terminal::clear_line()?;
+        Terminal::print(text)?;
         Ok(())
     }
 
-    pub fn render_welcome() -> Result<(), Error>{ 
-        let height = Terminal::size()?.height;
-
-        // height of 10 rows = print ~ for row 0-9
-        for row in 0..height {
-            Terminal::clear_line()?;
-            
-            // welcome message insertion logic
-            #[allow(clippy::integer_division)]
-            if row == height / 3 {
-                Self::display_name()?;
-            } else {
-                Self::draw_empty_row()?;
-            }
-
-            // bottom of terminal window
-            if (row.saturating_add(1)) < height {
-                Terminal::print("\r\n")?;
-            }
+    pub fn render(&mut self) -> Result<(), Error> {
+        // redraw checking
+        if !self.need_redraw {
+            return Ok(())
         }
 
-        Ok(())
-    }
+        // if line length > window width, truncate string
+        let Size { height, width } = self.size;
+        if height == 0 || width == 0 {
+            return Ok(());
+        }
 
-    pub fn render_buffer(&self) -> Result<(), Error> {
-        let Size { height, .. } = Terminal::size()?;
-
+        let y_centre = height / 3;
         for row in 0..height {
-            Terminal::clear_line()?;
-
             if let Some(line) = self.buffer.lines.get(row) {
-                Terminal::print(line)?;
-            } else {
-                Self::draw_empty_row()?;
-            }
+                let truncated_line: &str;
+                if line.len() >= width {
+                    truncated_line = &line[0..width];
+                } else {
+                    truncated_line = line;
+                };
 
-            if row.saturating_add(1) < height {
-                Terminal::print("\r\n")?;
+                Self::render_line(row, truncated_line)?;
+            } else if row == y_centre && self.buffer.is_empty() {
+                // render welcome
+                Self::render_line(row, &Self::build_welcome_message(width))?;
+            } else {
+                // render ~ for empty
+                Self::render_line(row, "~")?;
             }
         }
-
+        self.need_redraw = false;
         Ok(())
     }
 
-    fn draw_empty_row() -> Result<(), Error> {
-        Terminal::print("~")?;
-        Ok(())
+    pub fn build_welcome_message(width: usize) -> String {
+        if width == 0 {
+            return " ".to_string();
+        }
+
+        let message = format!("{NAME} -- {VERSION}");
+        let len = message.len();
+        if width <= len {
+            return "~".to_string();
+        }
+
+        let padding = (width.saturating_sub(len).saturating_sub(1)) / 2;
+        let mut final_message = format!("~{}{}", " ".repeat(padding), message);
+        final_message.truncate(width);
+
+        final_message
     }
 
-    // saturating operations return valid value closest to correct value
-    // e.g. addition with results over MAX_VALUE, return MAX_VALUE
-    fn display_name() -> Result<(), Error> {
-        let mut title = format!("{NAME} -- {VERSION}");
+}
 
-        let width = Terminal::size()?.width;
-        let len = title.len();
-
-        #[allow(clippy::integer_division)]
-        let padding = (width.saturating_sub(len)) / 2;
-        let spaces = " ".repeat(padding.saturating_sub(1));
-
-        title = format!("~{spaces}{title}");
-        title.truncate(width);
-        Terminal::print(&title)?;
-        
-        Ok(())
+impl Default for View {
+    fn default() -> Self {
+        Self {
+            buffer: Buffer::default(),
+            size: Terminal::size().unwrap_or_default(),
+            need_redraw: true,
+        }
     }
 }

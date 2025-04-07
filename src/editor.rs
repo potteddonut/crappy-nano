@@ -1,6 +1,6 @@
 use std::io::Error;
 use std::cmp::min;
-use crossterm::event::{read, Event::{self, Key}, KeyCode, KeyEvent, KeyModifiers};
+use crossterm::event::{read, Event::{self}, KeyCode, KeyEvent, KeyModifiers};
 
 mod terminal;
 use terminal::{Position, Size, Terminal};
@@ -50,7 +50,7 @@ impl Editor {
                 break;
             }
             let event = read()?;
-            self.evaluate_event(&event)?;
+            self.evaluate_event(event)?;
         }
         Ok(())
     }
@@ -94,28 +94,42 @@ impl Editor {
         Ok(())
     }
 
-    fn evaluate_event(&mut self, event: &Event) -> Result<(), Error> {        
-        if let Key(KeyEvent {
-            code,
-            modifiers,
-            ..
-        }) = event {
-            match code {
-                KeyCode::Char('q') if *modifiers == KeyModifiers::CONTROL => {
-                    self.should_quit = true;
-                },
-                KeyCode::Up |
-                KeyCode::Down |
-                KeyCode::Left |
-                KeyCode::Right |
-                KeyCode::PageDown |
-                KeyCode::PageUp |
-                KeyCode::End |
-                KeyCode:: Home => {
-                    self.move_pointer(*code)?;
+    fn evaluate_event(&mut self, event: Event) -> Result<(), Error> {    
+        match event {
+            Event::Key(KeyEvent {
+                code,
+                modifiers,
+                ..
+            }) => {
+                match (code, modifiers) {
+                    (KeyCode::Char('q'), KeyModifiers::CONTROL) => {
+                        self.should_quit = true;
+                    },
+                    ( 
+                        KeyCode::Up |
+                        KeyCode::Down |
+                        KeyCode::Left |
+                        KeyCode::Right |
+                        KeyCode::PageDown |
+                        KeyCode::PageUp |
+                        KeyCode::End |
+                        KeyCode:: Home,
+                        _, 
+                    ) => {
+                       self.move_pointer(code)?;
+                    }
+                    _ => {},
                 }
-                _ => (),
-            }
+            },
+            Event::Resize(col_u16, row_u16) => {
+                let col = col_u16 as usize;
+                let row = row_u16 as usize;
+                self.view.resize(Size {
+                    height: row,
+                    width: col,
+                });
+            },
+            _ => {}
         }
         Ok(())
     }
@@ -123,12 +137,12 @@ impl Editor {
     // called by the REPL loop
     // if the exit shortcut is not triggered, re-print left-column of '~'
     // 
-    fn refresh_screen(&self) -> Result<(), Error> {
+    fn refresh_screen(&mut self) -> Result<(), Error> {
         Terminal::hidecursor()?;
         Terminal::set_cursor(Position::default())?;
 
         if self.should_quit {
-            // Terminal::clear_screen()?;
+            Terminal::clear_screen()?;
             Terminal::print("bye nerd\r\n")?;
         } else {
             self.view.render()?;
