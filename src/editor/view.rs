@@ -51,13 +51,14 @@ impl View {
         }
 
         let y_centre = height / 3;
+
         for row in 0..height {
+
             if let Some(line) = self.buffer.lines.get(row) {
-                let truncated_line: &str;
-                if line.len() >= width {
-                    truncated_line = &line[0..width];
+                let truncated_line: &str = if line.len() >= width {
+                    &line[0..width]
                 } else {
-                    truncated_line = line;
+                    line
                 };
 
                 Self::render_line(row, truncated_line)?;
