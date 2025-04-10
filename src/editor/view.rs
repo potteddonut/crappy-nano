@@ -1,5 +1,4 @@
-use super::terminal::{ Terminal, Size, Position };
-use std::io::Error;
+use super::terminal::{ Terminal, Size };
 
 mod buffer;
 use buffer::Buffer;
@@ -27,27 +26,21 @@ impl View {
         }
     }
 
-    fn render_line(at: usize, text: &str) -> Result<(), Error> {
-        Terminal::set_cursor(Position {
-            x: 0,
-            y: at
-        })?;
-
-        Terminal::clear_line()?;
-        Terminal::print(text)?;
-        Ok(())
+    fn render_line(at: usize, text: &str) {
+        let result = Terminal::print_row(at, text);
+        debug_assert!(result.is_ok(), "Failed to render line at {at}");
     }
 
-    pub fn render(&mut self) -> Result<(), Error> {
+    pub fn render(&mut self) {
         // redraw checking
         if !self.need_redraw {
-            return Ok(())
+            return;
         }
 
         // if line length > window width, truncate string
         let Size { height, width } = self.size;
         if height == 0 || width == 0 {
-            return Ok(());
+            return;
         }
 
         let y_centre = height / 3;
@@ -61,17 +54,16 @@ impl View {
                     line
                 };
 
-                Self::render_line(row, truncated_line)?;
+                Self::render_line(row, truncated_line);
             } else if row == y_centre && self.buffer.is_empty() {
                 // render welcome
-                Self::render_line(row, &Self::build_welcome_message(width))?;
+                Self::render_line(row, &Self::build_welcome_message(width));
             } else {
                 // render ~ for empty
-                Self::render_line(row, "~")?;
+                Self::render_line(row, "~");
             }
         }
         self.need_redraw = false;
-        Ok(())
     }
 
     pub fn build_welcome_message(width: usize) -> String {

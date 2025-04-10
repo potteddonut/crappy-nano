@@ -6,6 +6,6 @@ mod editor;
 use editor::Editor;
 
 fn main() {
-    let mut editor = Editor::default();
+    let mut editor = Editor::new().unwrap();
     editor.run();
 }

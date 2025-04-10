@@ -23,21 +23,22 @@ impl Terminal {
     pub fn initialize() -> Result<(), Error> {
         enable_raw_mode()?;
         Self::queue_command(EnterAlternateScreen)?;
-
         Self::clear_screen()?;
-        Self::set_cursor(Position {
-            x: 0,
-            y: 0,
-        })?;
+        Self::execute()?;
 
         Ok(())
     }
 
     pub fn terminate() -> Result<(), Error> {
+        Self::queue_command(LeaveAlternateScreen)?;
+        Self::showcursor()?;
+        Self::execute()?;
         disable_raw_mode()?;
-        Self::queue_command(LeaveAlternateScreen)
+
+        Ok(())
     }
 
+    // dont use unnecessarily - will cause weird whitespace issues
     pub fn clear_screen() -> Result<(), Error> {
         Self::queue_command(Clear(ClearType::All))
     }
@@ -77,6 +78,13 @@ impl Terminal {
         // reset cursor to top left
         #[allow(clippy::as_conversions)]
         Self::queue_command(MoveTo(pos.x as u16, pos.y as u16))
+    }
+
+    pub fn print_row(row: usize, text: &str) -> Result<(), Error> {
+        Self::set_cursor(Position { x: 0, y: row })?;
+        Self::clear_line()?;
+        Self::print(text)?;
+        Ok(())
     }
 
     pub fn execute() -> Result<(), Error> {

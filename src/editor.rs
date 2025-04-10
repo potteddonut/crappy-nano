@@ -1,3 +1,4 @@
+use std::panic::{set_hook, take_hook};
 use std::io::Error;
 use std::cmp::min;
 use crossterm::event::{read, Event::{self}, KeyCode, KeyEvent, KeyModifiers};
@@ -17,7 +18,6 @@ struct Location {
     y: usize,
 }
 
-#[derive(Default)]
 pub struct Editor {
     should_quit: bool,
     location: Location,
@@ -25,41 +25,54 @@ pub struct Editor {
 }
 
 impl Editor {
-    pub fn run(&mut self) {
-        Terminal::initialize().unwrap();
-        self.parse_args();
-        let result = self.repl();
+    pub fn new() -> Result<Self, Error> {
+        // on error, terminate crappy-nano instance
+        // set custom panic hook
+        let currenthook = take_hook();
 
-        Terminal::terminate().unwrap();
-        result.unwrap();
-    }
+        // use boxes to ensure valid error handling for the lifetime of the program
+        set_hook(Box::new(move |err| {
+            let _ = Terminal::terminate();
+            currenthook(err);
+        }));
 
-    // retrieve filepath from args
-    fn parse_args(&mut self) {
+        Terminal::initialize()?;
+        let mut view = View::default();
         let args: Vec<String> = std::env::args().collect();
         if let Some(filepath) = args.get(1) {
-            self.view.load(filepath);
+            view.load(filepath);
         }
+
+        Ok(Self {
+            should_quit: false,
+            location: Location::default(),
+            view,
+        })
+
     }
 
-    fn repl(&mut self) -> Result<(), Error> {
+    pub fn run(&mut self) {
         loop {
-            self.refresh_screen()?;
+            self.refresh_screen();
+            if self.should_quit { break; }
 
-            if self.should_quit {
-                break;
+            match read() {
+                Ok(event) => self.evaluate_event(event),
+                Err(err) => {
+                    #[cfg(debug_assertions)]
+                    {
+                        panic!("Could not read event: {err:?}");
+                    }
+                }
             }
-            let event = read()?;
-            self.evaluate_event(event)?;
         }
-        Ok(())
     }
 
     // update pointer location in document
     // on every screen refresh called by REPL we move the cursor to pointer location
-    fn move_pointer(&mut self, keycode: KeyCode) -> Result<(), Error> {
+    fn move_pointer(&mut self, keycode: KeyCode) {
         let Location { mut x, mut y } = self.location;
-        let Size { height, width } = Terminal::size()?;
+        let Size { height, width } = Terminal::size().unwrap_or_default();
 
         match keycode {
             KeyCode::Up => {
@@ -91,10 +104,9 @@ impl Editor {
             _ => (),
         }
         self.location = Location { x, y };
-        Ok(())
     }
 
-    fn evaluate_event(&mut self, event: Event) -> Result<(), Error> {    
+    fn evaluate_event(&mut self, event: Event) {    
         match event {
             Event::Key(KeyEvent {
                 code,
@@ -116,7 +128,7 @@ impl Editor {
                         KeyCode:: Home,
                         _, 
                     ) => {
-                       self.move_pointer(code)?;
+                       self.move_pointer(code);
                     }
                     _ => {},
                 }
@@ -131,30 +143,33 @@ impl Editor {
             },
             _ => {}
         }
-        Ok(())
     }
 
     // called by the REPL loop
     // if the exit shortcut is not triggered, re-print left-column of '~'
-    // 
-    fn refresh_screen(&mut self) -> Result<(), Error> {
-        Terminal::hidecursor()?;
-        Terminal::set_cursor(Position::default())?;
+    fn refresh_screen(&mut self) {
+        let _ = Terminal::hidecursor();
+        let _ = Terminal::set_cursor(Position::default());
 
-        if self.should_quit {
-            Terminal::clear_screen()?;
-            Terminal::print("bye nerd\r\n")?;
-        } else {
-            self.view.render()?;
-            Terminal::set_cursor(Position {
-                x: self.location.x,
-                y: self.location.y,
-            })?;
-        }
+        self.view.render();
 
-        Terminal::showcursor()?;
-        Terminal::execute()?;
-        Ok(())
+        let _ = Terminal::set_cursor(Position {
+            x: self.location.x,
+            y: self.location.y,
+        });
+
+        let _ = Terminal::showcursor();
+        let _ = Terminal::execute();
     }
 
+}
+
+impl Drop for Editor {
+    fn drop(&mut self) {
+        let _ = Terminal::terminate();
+
+        // if self.should_quit {
+        //     let _ = Terminal::print("bye nerd\r\n");
+        // }
+    }
 }
