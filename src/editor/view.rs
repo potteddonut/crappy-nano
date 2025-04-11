@@ -1,10 +1,15 @@
+use std::cmp::min;
+
 use super::terminal::{ Terminal, Size };
+use super::Editor;
 
 mod buffer;
 use buffer::Buffer;
+use crossterm::event::KeyCode;
 
 use crate::editor::NAME;
 use crate::editor::VERSION;
+use crate::editor::Location;
 
 pub struct View {
     buffer: Buffer,
@@ -82,6 +87,44 @@ impl View {
         final_message.truncate(width);
 
         final_message
+    }
+
+    // update pointer location in document
+    // on every screen refresh we move the cursor to pointer location
+    pub fn move_pointer(editor: &mut Editor, keycode: KeyCode) {
+        let Location { mut x, mut y } = editor.location;
+        let Size { height, width } = Terminal::size().unwrap_or_default();
+
+        match keycode {
+            KeyCode::Up => {
+                y = y.saturating_sub(1);
+            },
+            KeyCode::Down => {
+                // take either MAX_HEIGHT or actual position
+                y = min(height.saturating_sub(1), y.saturating_add(1));
+            },
+            KeyCode::Left => {
+                x = x.saturating_sub(1);
+            },
+            KeyCode::Right => {
+                // take either MAX_WIDTH or actual position
+                x = min(width.saturating_sub(1), x.saturating_add(1));
+            },
+            KeyCode::PageUp => {
+                y = 0;
+            },
+            KeyCode::PageDown => {
+                y = height.saturating_sub(1);
+            },
+            KeyCode::Home => {
+                x = 0;
+            },
+            KeyCode::End => {
+                x = width.saturating_sub(1);
+            },
+            _ => (),
+        }
+        editor.location = Location { x, y };
     }
 
 }

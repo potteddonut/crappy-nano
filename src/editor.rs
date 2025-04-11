@@ -1,6 +1,5 @@
 use std::panic::{set_hook, take_hook};
 use std::io::Error;
-use std::cmp::min;
 use crossterm::event::{read, Event::{self}, KeyCode, KeyEvent, KeyModifiers};
 
 mod terminal;
@@ -68,44 +67,6 @@ impl Editor {
         }
     }
 
-    // update pointer location in document
-    // on every screen refresh called by REPL we move the cursor to pointer location
-    fn move_pointer(&mut self, keycode: KeyCode) {
-        let Location { mut x, mut y } = self.location;
-        let Size { height, width } = Terminal::size().unwrap_or_default();
-
-        match keycode {
-            KeyCode::Up => {
-                y = y.saturating_sub(1);
-            },
-            KeyCode::Down => {
-                // take either MAX_HEIGHT or actual position
-                y = min(height.saturating_sub(1), y.saturating_add(1));
-            },
-            KeyCode::Left => {
-                x = x.saturating_sub(1);
-            },
-            KeyCode::Right => {
-                // take either MAX_WIDTH or actual position
-                x = min(width.saturating_sub(1), x.saturating_add(1));
-            },
-            KeyCode::PageUp => {
-                y = 0;
-            },
-            KeyCode::PageDown => {
-                y = height.saturating_sub(1);
-            },
-            KeyCode::Home => {
-                x = 0;
-            },
-            KeyCode::End => {
-                x = width.saturating_sub(1);
-            },
-            _ => (),
-        }
-        self.location = Location { x, y };
-    }
-
     fn evaluate_event(&mut self, event: Event) {    
         match event {
             Event::Key(KeyEvent {
@@ -128,7 +89,7 @@ impl Editor {
                         KeyCode:: Home,
                         _, 
                     ) => {
-                       self.move_pointer(code);
+                       View::move_pointer(self, code);
                     }
                     _ => {},
                 }
