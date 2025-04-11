@@ -11,15 +11,9 @@ use view::View;
 const NAME: &str = env!("CARGO_PKG_NAME");
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
-#[derive(Copy, Clone, Default)]
-struct Location {
-    x: usize,
-    y: usize,
-}
 
 pub struct Editor {
     should_quit: bool,
-    location: Location,
     view: View,
 }
 
@@ -44,7 +38,6 @@ impl Editor {
 
         Ok(Self {
             should_quit: false,
-            location: Location::default(),
             view,
         })
 
@@ -89,7 +82,7 @@ impl Editor {
                         KeyCode:: Home,
                         _, 
                     ) => {
-                       View::move_pointer(self, code);
+                       View::move_pointer(&mut self.view, code);
                     }
                     _ => {},
                 }
@@ -114,10 +107,7 @@ impl Editor {
 
         self.view.render();
 
-        let _ = Terminal::set_cursor(Position {
-            x: self.location.x,
-            y: self.location.y,
-        });
+        let _ = Terminal::set_cursor(self.view.getposition());
 
         let _ = Terminal::showcursor();
         let _ = Terminal::execute();

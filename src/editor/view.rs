@@ -1,23 +1,29 @@
 use std::cmp::min;
+use crossterm::event::KeyCode;
 
-use super::terminal::{ Terminal, Size };
-use super::Editor;
+use super::terminal::{ Position, Size, Terminal };
 
 mod buffer;
 use buffer::Buffer;
-use crossterm::event::KeyCode;
+
+mod location;
+use location::Location;
 
 use crate::editor::NAME;
 use crate::editor::VERSION;
-use crate::editor::Location;
 
 pub struct View {
     buffer: Buffer,
     size: Size,
     need_redraw: bool,
+    location: Location,
 }
 
 impl View {
+    pub fn getposition(&self) -> Position {
+        self.location.into()
+    }
+
     pub fn resize(&mut self, size: Size) {
         self.size = size;
         self.need_redraw = true;
@@ -91,8 +97,8 @@ impl View {
 
     // update pointer location in document
     // on every screen refresh we move the cursor to pointer location
-    pub fn move_pointer(editor: &mut Editor, keycode: KeyCode) {
-        let Location { mut x, mut y } = editor.location;
+    pub fn move_pointer(&mut self, keycode: KeyCode) {
+        let Location { mut x, mut y } = self.location;
         let Size { height, width } = Terminal::size().unwrap_or_default();
 
         match keycode {
@@ -124,7 +130,7 @@ impl View {
             },
             _ => (),
         }
-        editor.location = Location { x, y };
+        self.location = Location { x, y };
     }
 
 }
@@ -135,6 +141,7 @@ impl Default for View {
             buffer: Buffer::default(),
             size: Terminal::size().unwrap_or_default(),
             need_redraw: true,
+            location: Location::default(),
         }
     }
 }
