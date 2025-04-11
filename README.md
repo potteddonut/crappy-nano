@@ -1,12 +1,20 @@
 # Crappy Nano
 
-Crappy Nano is a simple text editor written in Rust, inspired by the classic Nano editor. This project is a learning exercise to explore Rust programming and terminal-based applications.
+Crappy Nano is a simple text editor written in Rust, inspired by the classic Nano editor. This project is a learning exercise to explore the Rust programming language and getting a feel for developing terminal-based applications.
 
 ## Features
 
 -   Basic text editing capabilities
 -   Command-line interface
 -   Lightweight and minimalistic
+-   Syntax highlighting
+
+## Implementations
+
+-   [x] File loading
+-   [ ] Scrolling
+-   [ ] Text editing
+-   [ ] Syntax highlighting
 
 ## Installation
 
