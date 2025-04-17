@@ -12,7 +12,7 @@ impl Buffer {
     }
 
     pub fn load(filepath: &str) -> Result<Self, Error> {
-        let contents = read_to_string(filepath).unwrap();
+        let contents = read_to_string(filepath)?;
         let mut lines = Vec::new();
 
         for line in contents.lines() {

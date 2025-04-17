@@ -1,5 +1,4 @@
-use std::cmp::min;
-use crossterm::event::KeyCode;
+use std::cmp;
 
 use super::terminal::{ Position, Size, Terminal };
 
@@ -9,6 +8,8 @@ use buffer::Buffer;
 mod location;
 use location::Location;
 
+use super::editorcommand::{Direction, EditorCommand};
+
 use crate::editor::NAME;
 use crate::editor::VERSION;
 
@@ -17,6 +18,7 @@ pub struct View {
     size: Size,
     need_redraw: bool,
     location: Location,
+    scroll_offset: Location,
 }
 
 impl View {
@@ -24,8 +26,9 @@ impl View {
         self.location.into()
     }
 
-    pub fn resize(&mut self, size: Size) {
-        self.size = size;
+    pub fn resize(&mut self, to: Size) {
+        self.size = to;
+        self.scroll_into_view();
         self.need_redraw = true;
     }
 
@@ -55,17 +58,20 @@ impl View {
         }
 
         let y_centre = height / 3;
+        let top = self.scroll_offset.y;
 
         for row in 0..height {
+            if let Some(line) = self.buffer.lines.get(row.saturating_add(top)) {
+                let left = self.scroll_offset.x;
+                let right = self.scroll_offset.x.saturating_add(width);
+                
+                // nasty horizontal scrolling fix
+                let str = String::from(line);
+                let range = left..right;
+                let start = range.start;
+                let end = cmp::min(range.end, str.len());
 
-            if let Some(line) = self.buffer.lines.get(row) {
-                let truncated_line: &str = if line.len() >= width {
-                    &line[0..width]
-                } else {
-                    line
-                };
-
-                Self::render_line(row, truncated_line);
+                Self::render_line(row, str.get(start..end).unwrap_or_default());
             } else if row == y_centre && self.buffer.is_empty() {
                 // render welcome
                 Self::render_line(row, &Self::build_welcome_message(width));
@@ -95,42 +101,81 @@ impl View {
         final_message
     }
 
+    fn scroll_into_view(&mut self) {
+        let Location { x, y } = self.location;
+        let Size { width, height } = self.size;
+        let mut offset_changed = false;
+
+        // vertical scrolling
+        if y < self.scroll_offset.y {
+            self.scroll_offset.y = y;
+            offset_changed = true;
+        } else if y >= self.scroll_offset.y.saturating_add(height) {
+            // cursor goes beyond window bounds
+            self.scroll_offset.y = y.saturating_sub(height).saturating_add(1);
+            offset_changed = true;
+        }
+
+        // horizontal scrolling
+        if x < self.scroll_offset.x {
+            self.scroll_offset.x = x;
+            offset_changed = true;
+        } else if x >= self.scroll_offset.x.saturating_add(width) {
+            // cursor goes beyond window bounds
+            self.scroll_offset.x = x.saturating_sub(width).saturating_add(1);
+            offset_changed = true;
+        }
+
+        self.need_redraw = offset_changed;
+    }
+
     // update pointer location in document
     // on every screen refresh we move the cursor to pointer location
-    pub fn move_pointer(&mut self, keycode: KeyCode) {
+    pub fn move_pointer(&mut self, direction: &Direction) {
         let Location { mut x, mut y } = self.location;
         let Size { height, width } = Terminal::size().unwrap_or_default();
 
-        match keycode {
-            KeyCode::Up => {
+        match direction {
+            Direction::Up => {
                 y = y.saturating_sub(1);
             },
-            KeyCode::Down => {
+            Direction::Down => {
                 // take either MAX_HEIGHT or actual position
-                y = min(height.saturating_sub(1), y.saturating_add(1));
+                // y = min(height.saturating_sub(1), y.saturating_add(1));
+                y = y.saturating_add(1);
             },
-            KeyCode::Left => {
+            Direction::Left => {
                 x = x.saturating_sub(1);
             },
-            KeyCode::Right => {
+            Direction::Right => {
                 // take either MAX_WIDTH or actual position
-                x = min(width.saturating_sub(1), x.saturating_add(1));
+                // x = min(width.saturating_sub(1), x.saturating_add(1));
+                x = x.saturating_add(1);
             },
-            KeyCode::PageUp => {
+            Direction::PageUp => {
                 y = 0;
             },
-            KeyCode::PageDown => {
+            Direction::PageDown => {
                 y = height.saturating_sub(1);
             },
-            KeyCode::Home => {
+            Direction::Home => {
                 x = 0;
             },
-            KeyCode::End => {
+            Direction::End => {
                 x = width.saturating_sub(1);
             },
             _ => (),
         }
         self.location = Location { x, y };
+        self.scroll_into_view();
+    }
+
+    pub fn handle_command(&mut self, command: EditorCommand) {
+        match command {
+            EditorCommand::Resize(size) => self.resize(size),
+            EditorCommand::Move(direction) => self.move_pointer(&direction),
+            EditorCommand::Quit => {},
+        }
     }
 
 }
@@ -142,6 +187,7 @@ impl Default for View {
             size: Terminal::size().unwrap_or_default(),
             need_redraw: true,
             location: Location::default(),
+            scroll_offset: Location::default(),
         }
     }
 }

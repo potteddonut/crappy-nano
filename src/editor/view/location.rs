@@ -6,11 +6,11 @@ pub struct Location {
     pub y: usize,
 }
 
-impl Into<Position> for Location {
-    fn into(self) -> Position {
-        Position {
-            x: self.x,
-            y: self.y,
+impl From<Location> for Position {
+    fn from(loc: Location) -> Self {
+        Self {
+            x: loc.x,
+            y: loc.y,
         }
     }
 }

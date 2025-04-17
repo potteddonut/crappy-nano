@@ -1,5 +1,7 @@
 use std::panic::{set_hook, take_hook};
 use std::io::Error;
+use std::process::Command;
+use crossterm::event::KeyEventKind;
 use crossterm::event::{read, Event::{self}, KeyCode, KeyEvent, KeyModifiers};
 
 mod terminal;
@@ -7,6 +9,9 @@ use terminal::{Position, Size, Terminal};
 
 mod view;
 use view::View;
+
+mod editorcommand;
+use editorcommand::EditorCommand;
 
 const NAME: &str = env!("CARGO_PKG_NAME");
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -60,42 +65,35 @@ impl Editor {
         }
     }
 
+    // TODO offload event handling
     fn evaluate_event(&mut self, event: Event) {    
-        match event {
-            Event::Key(KeyEvent {
-                code,
-                modifiers,
-                ..
-            }) => {
-                match (code, modifiers) {
-                    (KeyCode::Char('q'), KeyModifiers::CONTROL) => {
+        let should_process = match &event {
+            Event::Key(KeyEvent { kind, .. }) => kind == &KeyEventKind::Press,
+            Event::Resize(_, _) => true,
+            _ => false,
+        };
+
+        if should_process {
+            match EditorCommand::try_from(event) {
+                Ok(command) => {
+                    if matches!(command, EditorCommand::Quit) {
                         self.should_quit = true;
-                    },
-                    ( 
-                        KeyCode::Up |
-                        KeyCode::Down |
-                        KeyCode::Left |
-                        KeyCode::Right |
-                        KeyCode::PageDown |
-                        KeyCode::PageUp |
-                        KeyCode::End |
-                        KeyCode:: Home,
-                        _, 
-                    ) => {
-                       View::move_pointer(&mut self.view, code);
+                    } else {
+                        self.view.handle_command(command);
                     }
-                    _ => {},
+                },
+                Err(err) => {
+                    #[cfg(debug_assertions)]
+                    {
+                        panic!("Failed to handle command: {err}");
+                    }
                 }
-            },
-            Event::Resize(col_u16, row_u16) => {
-                let col = col_u16 as usize;
-                let row = row_u16 as usize;
-                self.view.resize(Size {
-                    height: row,
-                    width: col,
-                });
-            },
-            _ => {}
+            }
+        } else {
+            #[cfg(debug_assertions)]
+            {
+                panic!("Discarded unsupported keypress event.");
+            }
         }
     }
 
@@ -108,7 +106,6 @@ impl Editor {
         self.view.render();
 
         let _ = Terminal::set_cursor(self.view.getposition());
-
         let _ = Terminal::showcursor();
         let _ = Terminal::execute();
     }
