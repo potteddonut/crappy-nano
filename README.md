@@ -12,7 +12,7 @@ Crappy Nano is a simple text editor written in Rust, inspired by the classic Nan
 ## Implementations
 
 -   [x] File loading
--   [ ] Scrolling
+-   [x] Scrolling
 -   [ ] Text editing
 -   [ ] Syntax highlighting
 
