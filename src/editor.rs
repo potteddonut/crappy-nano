@@ -16,7 +16,7 @@ use editorcommand::EditorCommand;
 const NAME: &str = env!("CARGO_PKG_NAME");
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
-
+// struct for editor
 pub struct Editor {
     should_quit: bool,
     view: View,
